@@ -414,5 +414,8 @@ ADD_CUSTOM_TARGET(release
 feature_summary(WHAT ALL
                 DESCRIPTION "=== TiledArray Package/Feature Info ===")
 
-add_subdirectory(python)
+option(TA_PYTHON "Build TA python module" ON)
+if (TA_PYTHON)
+  add_subdirectory(python)
+endif()
 	      

@@ -1,6 +1,13 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.12)
 
 project(python-tiledarray)
+
+if (TARGET tiledarray)
+  get_target_property(tiledarray_target_type tiledarray TYPE)
+  if (NOT ${tiledarray_target_type} STREQUAL SHARED_LIBRARY)
+    message(FATAL_ERROR "tiledarray target must be shared library, found '${tiledarray_target_type}' instead")
+  endif()
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 add_compile_options(-Wall)
@@ -13,12 +20,15 @@ find_package(Eigen3 3.3 REQUIRED)
 find_package(Boost REQUIRED) # spirit absent from cmake
 # include_directories(${BOOST_INCLUDE_DIRS})
 
-add_subdirectory(pybind11)
+#find_package (Python COMPONENTS Interpreter Development)
+#include_directories(${PROJECT_SOURCE_DIR}/pybind11/include)
+#python_add_library(python-tiledarray MODULE src/tiledarray.cc WITH_SOABI)
 
-pybind11_add_module(python-tiledarray MODULE src/tiledarray.cc EXCLUDE_FROM_ALL)
+add_subdirectory(pybind11)
+pybind11_add_module(python-tiledarray MODULE src/tiledarray.cc)
 
 # mpi c libs need come from tiledarray
-target_link_libraries(python-tiledarray PRIVATE tiledarray ${MPI_C_LIBRARIES})
+target_link_libraries(python-tiledarray PRIVATE tiledarray)
 
 set_target_properties(
   python-tiledarray
