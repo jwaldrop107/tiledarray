@@ -9,9 +9,9 @@ class TiledArrayTest(unittest.TestCase):
     a.fill(1, False)
     world.fence()
     a = ta.TArray([5,5],3,world)
-    self.assertEqual(a.shape, [5,5])
+    self.assertEqual(a.shape, (5,5))
     a = ta.TArray([[2,7],[2,4,7]])
-    self.assertEqual(a.shape, [5,5])
+    self.assertEqual(a.shape, (5,5))
     world.fence()
 
 
@@ -74,6 +74,16 @@ class TiledArrayTest(unittest.TestCase):
       tile.data = np.ones([2,2])
       print (tile.index, tile.range, tile.data)
     world.fence()
+
+  def test_array_buffer(self):
+    import numpy as np
+    world = ta.get_default_world()
+    a = ta.TArray([4,8],  block=8, world=world)
+    a.fill(1)
+    world.fence()
+    b = np.array(a)
+    self.assertEqual(b.shape, a.shape)
+    #print (b[...])
 
 if __name__ == '__main__':
   unittest.main()

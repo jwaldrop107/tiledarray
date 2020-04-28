@@ -7,6 +7,7 @@
 #include "range.h"
 
 #include <TiledArray/dist_array.h>
+#include <TiledArray/conversions/eigen.h>
 #include <vector>
 #include <string>
 
@@ -63,11 +64,14 @@ namespace array {
     return array;
   }
 
-  inline std::vector<size_t> shape(const TArray<double> &a) {
-    std::vector<size_t> shape;
-    for (const auto &tr1 : a.trange().data()) {
-      shape.push_back(tr1.extent());
+  template<class S = std::vector<size_t> >
+  inline S shape(const TArray<double> &a) {
+    auto e = a.elements_range().extent();
+    S shape(e.size());
+    for (size_t i = 0; i < e.size(); ++i) {
+      shape[i] = e[i];
     }
+    //std::copy(e.begin(), e.end(), shape.begin());
     return shape;
   }
 
@@ -124,10 +128,28 @@ namespace array {
     array.set(idx, tile);
   }
 
-  inline py::array getitem(const TArray<double> &array, std::vector<int64_t> idx) {
-    auto tile = array.find(idx).get();
-    return py::array(make_buffer_info(tile));
+  template<class Idx>
+  inline py::array getitem(const TArray<double> &array, Idx idx) {
+    auto tile = array.find(idx);
+    if (!tile.probe()) {
+      auto str = py::str(py::cast(idx));
+      throw std::runtime_error("TArray[" + py::cast<std::string>(str) + "] tile is not set");
+    }
+    return py::array(make_buffer_info(tile.get()));
   }
+
+  template<typename T>
+  py::buffer_info make_buffer(TArray<T> &a) {
+    auto buffer = py::array_t<T>(shape(a));
+    for (size_t i = 0; i < a.size(); ++i) {
+      //if (a.is_zero(i)) continue;
+      auto range = range::slice(a.trange().make_tile_range(i));
+      //py::print(i,range);
+      buffer[range] = getitem(a,i);
+    }
+    return buffer.request();
+  }
+
 
   typedef TArray<double>::reference TileReference;
 
@@ -150,7 +172,7 @@ namespace array {
       .def_property("data", &get_reference_data, &set_reference_data)
       ;
 
-    py::class_< TArray<double>, std::shared_ptr<TArray<double> > >(m, "TArray")
+    py::class_< TArray<double>, std::shared_ptr<TArray<double> > >(m, "TArray", py::buffer_protocol())
       .def(py::init())
       .def(
         py::init(&make_array< std::vector<int64_t>, size_t >),
@@ -165,15 +187,16 @@ namespace array {
         py::arg("world") = nullptr,
         py::arg("op") = py::none()
       )
+      .def_buffer(&array::make_buffer<double>)
       .def_property_readonly("world", &array::world, py::return_value_policy::reference)
       .def_property_readonly("trange", &array::trange)
-      .def_property_readonly("shape", &array::shape)
+      .def_property_readonly("shape", &array::shape<py::tuple>)
       .def("fill", &TArray<double>::fill, py::arg("value"), py::arg("skip_set") = false)
       .def("init", &array::init_tiles)
       .def("__iter__", &array::make_iterator, py::keep_alive<0, 1>()) // Keep object alive while iterator is used */
       .def("__getitem__", &expression::getitem)
       .def("__setitem__", &expression::setitem)
-      .def("__getitem__", &array::getitem)
+      .def("__getitem__", &array::getitem< std::vector<int64_t> >)
       .def("__setitem__", &array::setitem)
       ;
 
